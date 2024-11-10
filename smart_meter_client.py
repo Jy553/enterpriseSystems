@@ -4,6 +4,7 @@ import time
 import uuid
 import platform
 import re
+from api_handler import ApiHandler
 from threading import Thread
 from datetime import datetime
 import psutil  # You'll need to install this package with `pip install psutil`
@@ -105,6 +106,7 @@ class SmartMeterApp(ctk.CTk):
                     if iface.family == psutil.AF_LINK:
                         return iface.address
         except Exception as e:
+            console.log('test')
             return str(uuid.uuid4())  # Fallback to UUID if MAC address retrieval fails
 
     def toggle_mode(self):
@@ -132,31 +134,33 @@ class SmartMeterApp(ctk.CTk):
 
     def update_bill(self):
         try:
-            while True:
-                # Simulate a 2-second interval between bill updates
-                time.sleep(2)
+            with ApiHandler(queue_name="smart_meter_queue", host="localhost") as handler:
+                handler.send_message("Test message")
+                while True:
+                    # Simulate a 2-second interval between bill updates
+                    time.sleep(2)
 
-                if random.random() < 0.1:  # 10% chance of network failure
-                    self.log_to_console("Network lost... Trying to reconnect.")
-                    time.sleep(2)  # Simulate downtime during network loss
-                    self.log_to_console("Reconnected to the network.")
-                    continue  # Skip updating the bill during a network outage
+                    if random.random() < 0.1:  # 10% chance of network failure
+                        self.log_to_console("Network lost... Trying to reconnect.")
+                        time.sleep(2)  # Simulate downtime during network loss
+                        self.log_to_console("Reconnected to the network.")
+                        continue  # Skip updating the bill during a network outage
 
-                # Fetch the latest bill and usage (simulated server response)
-                bill_increment, usage_increment = simulate_server_communication()
-                self.current_bill += bill_increment
-                self.total_usage += usage_increment
+                    # Fetch the latest bill and usage (simulated server response)
+                    bill_increment, usage_increment = simulate_server_communication()
+                    self.current_bill += bill_increment
+                    self.total_usage += usage_increment
 
-                # Update the bill and usage labels
-                self.bill_label.configure(text=f"Current Bill: £{self.current_bill:.2f}")
-                self.usage_label.configure(text=f"Total Usage: {self.total_usage:.2f} kWh")
+                    # Update the bill and usage labels
+                    self.bill_label.configure(text=f"Current Bill: £{self.current_bill:.2f}")
+                    self.usage_label.configure(text=f"Total Usage: {self.total_usage:.2f} kWh")
 
-                # Update the last updated time
-                last_updated_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                self.last_updated_label.configure(text=f"Last Updated: {last_updated_time}")
+                    # Update the last updated time
+                    last_updated_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    self.last_updated_label.configure(text=f"Last Updated: {last_updated_time}")
 
-                # Log the action in the console with a timestamp
-                self.log_to_console(f"[{last_updated_time}] Bill updated: £{self.current_bill:.2f}, Usage: {self.total_usage:.2f} kWh")
+                    # Log the action in the console with a timestamp
+                    self.log_to_console(f"[{last_updated_time}] Bill updated: £{self.current_bill:.2f}, Usage: {self.total_usage:.2f} kWh")
 
         except Exception as e:
             # Log error messages to the console instead of showing pop-ups
