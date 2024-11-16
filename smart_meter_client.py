@@ -1,4 +1,5 @@
 import json
+from tkinter import messagebox
 import customtkinter as ctk
 import random
 import time
@@ -131,27 +132,39 @@ class SmartMeterApp(ctk.CTk):
             self.console_toggle_button.configure(text="Hide Console")
             self.geometry("500x455")  # Adjust window size when console is shown
 
-    def start_receiving_messages(self):
+    def start_bill_updates(self):
         thread = Thread(target=self.update_bill)
         thread.daemon = True
         thread.start()
 
-    def start_bill_updates(self):
-        thread = Thread(target=self.receive_message)
-        thread.daemon = True
-        thread.start()
+    def start_receiving_messages(self):
+        bills = Thread(target=self.receive_billing_messages)
+        bills.daemon = True
+        bills.start()
 
-    def receive_message(self):
-        handler = ApiHandler(queue_name='smart_meter_queue');
+        notifications = Thread(target=self.receive_notification_messages)
+        notifications.daemon = True
+        notifications.start()
+
+    def receive_billing_messages(self):
+        handler = ApiHandler();
 
         def handleReply(message):
             self.log_to_console(f'Message received: {message}')
 
-        handler.receive_message(callback=handleReply)
+        handler.receive_message(queue_name='readings',callback=handleReply)
+
+    def receive_notification_messages(self):
+        handler = ApiHandler();
+
+        def handleAlert(message):
+            self.show_popup_message(message)
+
+        handler.receive_message(queue_name='updates',callback=handleAlert)
 
     def update_bill(self):
         try:
-            with ApiHandler(queue_name="smart_meter_queue", host="localhost") as handler:
+            with ApiHandler(host="localhost") as handler:
                 while True:
                     # Simulate a 2-second interval between bill updates
                     time.sleep(2)
@@ -168,7 +181,7 @@ class SmartMeterApp(ctk.CTk):
                     self.total_usage += usage_increment
 
                     #send update
-                    handler.send_message(json.dumps(
+                    handler.send_message(queue_name='readings', message=json.dumps(
                         {
                             'usage': self.total_usage
                         }
@@ -194,6 +207,12 @@ class SmartMeterApp(ctk.CTk):
         self.console_textbox.insert(ctk.END, f"{message}\n")
         self.console_textbox.see(ctk.END)
         self.console_textbox.configure(state="disabled")
+
+    def show_popup_message(self, message):
+        self.withdraw()  # Hide the main window
+
+        # Show a popup message
+        messagebox.showinfo("Notice", f"{message}")
 
     # Show the settings page
     def show_settings_page(self):

@@ -12,57 +12,71 @@ import logging
 
 
 class ApiHandler:
-    """Handles interaction with a RabbitMQ queue for sending and receiving messages related to smart meter data."""
+    """Handles interaction with RabbitMQ for sending and receiving messages across multiple queues."""
 
-    def __init__(self, queue_name="smart_meter_queue", host="localhost"):
+    def __init__(self, host="localhost"):
         """
-        Initializes the ApiHandler with a specified RabbitMQ queue and host.
+        Initializes the ApiHandler with a specified RabbitMQ host.
 
         Parameters:
-        - queue_name (str): Name of the RabbitMQ queue to interact with.
         - host (str): Hostname of the RabbitMQ server.
         """
-        self.queue_name = queue_name
         self.host = host
         self.connection = None
         self.channel = None
         self.connect()
 
     def connect(self):
-        """Establishes a connection to RabbitMQ and declares the queue."""
+        """Establishes a connection to RabbitMQ and initializes the channel."""
         try:
             # Attempt to connect to RabbitMQ
             self.connection = pika.BlockingConnection(pika.ConnectionParameters(self.host))
             self.channel = self.connection.channel()
-            
-            # Declare the queue (idempotent operation)
-            self.channel.queue_declare(queue=self.queue_name)
-            logging.info(f"Connected to RabbitMQ on host {self.host}, queue: {self.queue_name}")
+            logging.info(f"Connected to RabbitMQ on host {self.host}")
         except pika.exceptions.AMQPConnectionError as e:
             logging.error(f"Failed to connect to RabbitMQ: {str(e)}")
             self.close()
 
-    def send_message(self, message):
+    def declare_queue(self, queue_name):
+        """
+        Declares a RabbitMQ queue.
+
+        Parameters:
+        - queue_name (str): Name of the queue to declare.
+        """
+        try:
+            if self.channel and self.connection.is_open:
+                # Declare the queue (idempotent operation)
+                self.channel.queue_declare(queue=queue_name)
+                logging.info(f"Declared queue: {queue_name}")
+            else:
+                logging.warning("No active RabbitMQ channel.")
+        except Exception as e:
+            logging.error(f"Failed to declare queue '{queue_name}': {str(e)}")
+
+    def send_message(self, queue_name, message):
         """
         Sends a message to the specified RabbitMQ queue.
 
         Parameters:
+        - queue_name (str): The name of the queue to send the message to.
         - message (str): The message to send to the queue.
         """
         try:
             if self.channel and self.connection.is_open:
-                self.channel.basic_publish(exchange='', routing_key=self.queue_name, body=message)
-                logging.info(f"Sent message to queue '{self.queue_name}': {message}")
+                self.channel.basic_publish(exchange='', routing_key=queue_name, body=message)
+                logging.info(f"Sent message to queue '{queue_name}': {message}")
             else:
                 logging.warning("No active RabbitMQ channel.")
         except Exception as e:
-            logging.error(f"Failed to send message: {str(e)}")
+            logging.error(f"Failed to send message to queue '{queue_name}': {str(e)}")
 
-    def receive_message(self, callback):
+    def receive_message(self, queue_name, callback):
         """
-        Starts consuming messages from the RabbitMQ queue and passes each message to a callback.
+        Starts consuming messages from the specified RabbitMQ queue and passes each message to a callback.
 
         Parameters:
+        - queue_name (str): The name of the queue to receive messages from.
         - callback (function): A function to process received messages.
         """
         try:
@@ -70,18 +84,18 @@ class ApiHandler:
                 def on_message(ch, method, properties, body):
                     # Decode message and pass to the callback
                     decoded_message = body.decode()
-                    logging.info(f"Received message: {decoded_message}")
+                    logging.info(f"Received message from '{queue_name}': {decoded_message}")
                     callback(decoded_message)
                     ch.basic_ack(delivery_tag=method.delivery_tag)
 
-                # Start consuming messages
-                self.channel.basic_consume(queue=self.queue_name, on_message_callback=on_message)
-                logging.info("Waiting for messages...")
+                # Start consuming messages from the specified queue
+                self.channel.basic_consume(queue=queue_name, on_message_callback=on_message)
+                logging.info(f"Waiting for messages on queue '{queue_name}'...")
                 self.channel.start_consuming()
             else:
                 logging.warning("No active RabbitMQ channel.")
         except Exception as e:
-            logging.error(f"Failed to receive message: {str(e)}")
+            logging.error(f"Failed to receive message from queue '{queue_name}': {str(e)}")
 
     def close(self):
         """Closes the connection to RabbitMQ, ensuring a clean disconnect."""
@@ -102,12 +116,12 @@ class ApiHandler:
 
 
 if __name__ == "__main__":
-    handler = ApiHandler(queue_name='readings');
+    handler = ApiHandler();
 
     #handler.send_message('test message')
 
     def handleReply(message):
         print(f"Received: {message}")
 
-    handler.receive_message(handleReply);
+    handler.receive_message(queue_name='updates', callback=handleReply);
     print('test')
