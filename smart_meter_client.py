@@ -97,6 +97,9 @@ class SmartMeterApp(ctk.CTk):
         # Start the background thread to update the bill and usage
         self.start_bill_updates()
 
+        # Start the background thread to listen for incoming messages
+        self.start_receiving_messages()
+
     def get_unique_device_id(self):
         # Retrieve MAC address as a unique identifier
         try:
@@ -127,10 +130,23 @@ class SmartMeterApp(ctk.CTk):
             self.console_toggle_button.configure(text="Hide Console")
             self.geometry("500x455")  # Adjust window size when console is shown
 
-    def start_bill_updates(self):
+    def start_receiving_messages(self):
         thread = Thread(target=self.update_bill)
         thread.daemon = True
         thread.start()
+
+    def start_bill_updates(self):
+        thread = Thread(target=self.receive_message)
+        thread.daemon = True
+        thread.start()
+
+    def receive_message(self):
+        handler = ApiHandler(queue_name='readings');
+
+        def handleReply(message):
+            self.log_to_console(f'Message received: {message}')
+
+        handler.receive_message(callback=handleReply)
 
     def update_bill(self):
         try:

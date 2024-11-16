@@ -99,3 +99,15 @@ class ApiHandler:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Ensures the connection is closed when exiting the context."""
         self.close()
+
+
+if __name__ == "__main__":
+    handler = ApiHandler(queue_name='readings');
+
+    #handler.send_message('test message')
+
+    def handleReply(message):
+        print(f"Received: {message}")
+
+    handler.receive_message(handleReply);
+    print('test')
