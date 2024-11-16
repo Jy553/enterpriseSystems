@@ -156,6 +156,7 @@ class SmartMeterApp(ctk.CTk):
 
     def receive_notification_messages(self):
         handler = ApiHandler();
+        reply_queue = handler.channel.queue_declare(queue='', exclusive=True);
 
         def handleAlert(message):
             self.show_popup_message(message)
