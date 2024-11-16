@@ -141,7 +141,7 @@ class SmartMeterApp(ctk.CTk):
         thread.start()
 
     def receive_message(self):
-        handler = ApiHandler(queue_name='readings');
+        handler = ApiHandler(queue_name='smart_meter_queue');
 
         def handleReply(message):
             self.log_to_console(f'Message received: {message}')
