@@ -209,7 +209,6 @@ class SmartMeterApp(ctk.CTk):
         self.console_textbox.configure(state="disabled")
 
     def show_popup_message(self, message):
-        self.withdraw()  # Hide the main window
 
         # Show a popup message
         messagebox.showinfo("Notice", f"{message}")
