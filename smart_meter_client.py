@@ -1,3 +1,4 @@
+import json
 import customtkinter as ctk
 import random
 import time
@@ -151,7 +152,6 @@ class SmartMeterApp(ctk.CTk):
     def update_bill(self):
         try:
             with ApiHandler(queue_name="smart_meter_queue", host="localhost") as handler:
-                handler.send_message("Test message")
                 while True:
                     # Simulate a 2-second interval between bill updates
                     time.sleep(2)
@@ -166,6 +166,13 @@ class SmartMeterApp(ctk.CTk):
                     bill_increment, usage_increment = simulate_server_communication()
                     self.current_bill += bill_increment
                     self.total_usage += usage_increment
+
+                    #send update
+                    handler.send_message(json.dumps(
+                        {
+                            'usage': self.total_usage
+                        }
+                    ));
 
                     # Update the bill and usage labels
                     self.bill_label.configure(text=f"Current Bill: £{self.current_bill:.2f}")
