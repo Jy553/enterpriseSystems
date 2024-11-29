@@ -111,7 +111,7 @@ class SmartMeterApp(ctk.CTk):
                     if iface.family == psutil.AF_LINK:
                         return iface.address
         except Exception as e:
-            console.log('test')
+            self.console.log('test')
             return str(uuid.uuid4())  # Fallback to UUID if MAC address retrieval fails
 
     def toggle_mode(self):
