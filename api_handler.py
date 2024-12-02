@@ -7,6 +7,7 @@ Description:
     This is designed for use in enterprise grade applications, with exception handling, logging, and context management to ensure robust resource handling and traceability. 
 """
 
+import uuid
 import pika
 import logging
 
@@ -24,6 +25,7 @@ class ApiHandler:
         self.host = host
         self.connection = None
         self.channel = None
+        self.reply_queue = None
         self.connect()
 
     def connect(self):
@@ -54,6 +56,21 @@ class ApiHandler:
         except Exception as e:
             logging.error(f"Failed to declare queue '{queue_name}': {str(e)}")
 
+    def declare_reply_queue(self):
+        try:
+            if self.reply_queue != None:
+                return self.reply_queue
+        
+            if self.channel and self.connection.is_open:
+                self.reply_queue = self.channel.queue_declare(queue='', exclusive=True)
+
+        except Exception as e:
+            logging.error(f"Failed to declare reply queue {str(e)}'")
+            return None
+
+        return self.reply_queue;
+            
+
     def send_message(self, queue_name, message):
         """
         Sends a message to the specified RabbitMQ queue.
@@ -63,8 +80,18 @@ class ApiHandler:
         - message (str): The message to send to the queue.
         """
         try:
+            cor_id = str(uuid.uuid4())
+
             if self.channel and self.connection.is_open:
-                self.channel.basic_publish(exchange='', routing_key=queue_name, body=message)
+                self.channel.basic_publish(exchange='', 
+                        routing_key='readings',
+                        body=message, 
+                        properties=pika.BasicProperties(
+                            content_type='application/json',
+                            correlation_id=cor_id,
+                            reply_to=self.declare_reply_queue().method.queue
+                        )  # Set the content type to JSON
+                )
                 logging.info(f"Sent message to queue '{queue_name}': {message}")
             else:
                 logging.warning("No active RabbitMQ channel.")
