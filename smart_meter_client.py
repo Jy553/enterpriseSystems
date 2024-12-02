@@ -150,6 +150,10 @@ class SmartMeterApp(ctk.CTk):
         handler = ApiHandler();
 
         def handleReply(message):
+            #bill = message.get('bill')
+            increase, usage = simulate_server_communication()
+            bill = self.current_bill + increase
+            self.current_bill = bill
             self.log_to_console(f'Message received: {message}')
 
         handler.receive_message(queue_name='readings',callback=handleReply)
@@ -178,7 +182,7 @@ class SmartMeterApp(ctk.CTk):
 
                     # Fetch the latest bill and usage (simulated server response)
                     bill_increment, usage_increment = simulate_server_communication()
-                    self.current_bill += bill_increment
+                    #self.current_bill += bill_increment
                     self.total_usage += usage_increment
 
                     #send update
