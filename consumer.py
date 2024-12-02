@@ -6,10 +6,19 @@ import random
 def on_message_received(channel, method, properties, body):
     processing_time = random.randint(1,6)
     
-    print(f"received body: {body}, will take {processing_time}s to process")
-    time.sleep(processing_time)
-    channel.basic_ack(delivery_tag=method.delivery_tag)
-    print(f"Message {json.loads(body)['id']} processed")
+    try: 
+        print(f"received body: {body}, will take {processing_time}s to process")
+        time.sleep(processing_time)
+        channel.basic_ack(delivery_tag=method.delivery_tag)
+        message = json.loads(body)
+        message_id = message.get('id', 'N/A')
+        print(f"Message {message_id} processed")
+    except json.JSONDecodeError:
+        print("Failed to decode message body. Skipping message.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    finally: 
+        channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
 connection_parameters = pika.ConnectionParameters('localhost')
