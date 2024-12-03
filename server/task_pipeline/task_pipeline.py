@@ -1,7 +1,7 @@
 import queue
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-from tasks.task import Task
+from models.task import Task
 import threading
 
 

@@ -1,6 +1,6 @@
 import unittest
-from task_pipeline.task_pipeline import TaskPipeline
-from tasks.task import Task
+from server.task_pipeline.task_pipeline import TaskPipeline
+from models.task import Task
 from unittest.mock import MagicMock, patch
 import time
 import threading
