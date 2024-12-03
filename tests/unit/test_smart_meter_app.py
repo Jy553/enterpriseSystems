@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from smart_meter_app import SmartMeterApp, simulate_server_communication
+from smart_meter_client import SmartMeterApp
 import customtkinter as ctk
 
 class test_smart_meter_app(unittest.TestCase):
@@ -35,7 +35,7 @@ class test_smart_meter_app(unittest.TestCase):
         self.app.toggle_mode()
         self.assertNotEqual(ctk.get_appearance_mode(), initial_mode)
 
-    @patch("smart_meter_app.simulate_server_communication")
+    @patch("smart_meter_client.simulate_server_communication")
     def test_update_bill(self, mock_simulate_server_communication):
         """Test that bill and usage update correctly."""
         mock_simulate_server_communication.return_value = (2.5, 1.2)
@@ -55,7 +55,7 @@ class test_smart_meter_app(unittest.TestCase):
         self.app.log_to_console(message)
         self.assertIn(message, self.app.console_textbox.get("1.0", "end"))
 
-    @patch("smart_meter_app.ApiHandler")
+    @patch("smart_meter_client.ApiHandler")
     def test_network_failure_reconnection(self, mock_ApiHandler):
         """Simulate a network failure and verify reconnection."""
         mock_handler_instance = mock_ApiHandler.return_value.__enter__.return_value

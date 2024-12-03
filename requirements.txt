@@ -1,6 +1,9 @@
 # GUI framework
 customtkinter
 
+# Data Handling
+pydantic             # Use for json model serialisation/deserialisation
+
 # Testing frameworks
 pytest>=7.4.0               # Core testing framework
 pytest-mock>=3.11.1          # Mocking utilities for testing
@@ -22,3 +25,4 @@ black                # Code formatting for consistency
 
 # Load testing (if required)
 locust               # Load testing for handling high concurrency scenarios
+

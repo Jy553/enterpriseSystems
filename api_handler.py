@@ -26,7 +26,6 @@ class ApiHandler:
         self.connection = None
         self.channel = None
         self.reply_queue = None
-        self.connect()
 
     def connect(self):
         """Establishes a connection to RabbitMQ and initializes the channel."""
@@ -38,6 +37,7 @@ class ApiHandler:
         except pika.exceptions.AMQPConnectionError as e:
             logging.error(f"Failed to connect to RabbitMQ: {str(e)}")
             self.close()
+            raise ConnectionError()
 
     def declare_queue(self, queue_name):
         """
@@ -82,6 +82,14 @@ class ApiHandler:
         try:
             cor_id = str(uuid.uuid4())
 
+            # Ensure the channel is open and valid
+            if not self.connection.is_open or not self.channel.is_open:
+                logging.error("Connection or channel is closed. Reconnecting...")
+                self.connect()
+                self.declare_reply_queue()  # Re-declare the reply-to queue after reconnecting
+                self.channel = self.connection.channel()  # Re-create the channel
+
+
             if self.channel and self.connection.is_open:
                 self.channel.basic_publish(exchange='', 
                         routing_key='readings',
@@ -95,6 +103,12 @@ class ApiHandler:
                 logging.info(f"Sent message to queue '{queue_name}': {message}")
             else:
                 logging.warning("No active RabbitMQ channel.")
+
+        except pika.exceptions.StreamLostError as e:
+           logging.error(f"Stream connection lost: {e}")
+           self.connect()
+           self.send_message(queue_name, message)  # Retry sending the message
+
         except Exception as e:
             logging.error(f"Failed to send message to queue '{queue_name}': {str(e)}")
 
@@ -107,8 +121,18 @@ class ApiHandler:
         - callback (function): A function to process received messages.
         """
         try:
+
+            # Ensure the channel is open and valid
+            if not self.connection.is_open or not self.channel.is_open:
+                logging.error("Connection or channel is closed. Reconnecting...")
+                self.connect()
+                self.declare_reply_queue()  # Re-declare the reply-to queue after reconnecting
+                self.channel = self.connection.channel()  # Re-create the channel
+
+
             if self.channel and self.connection.is_open:
                 def on_message(ch, method, properties, body):
+                    
                     # Decode message and pass to the callback
                     decoded_message = body.decode()
                     logging.info(f"Received message from '{queue_name}': {decoded_message}")
@@ -118,11 +142,22 @@ class ApiHandler:
                 # Start consuming messages from the specified queue
                 self.channel.basic_consume(queue=queue_name, on_message_callback=on_message)
                 logging.info(f"Waiting for messages on queue '{queue_name}'...")
-                self.channel.start_consuming()
+                self.connection.process_data_events(time_limit=1)
             else:
                 logging.warning("No active RabbitMQ channel.")
+        except IndexError as e:
+           print(f"IndexError caught: {e} - Queue might be empty.")
+           self.receive_message(queue_name, callback)  # Retry receiving messages
+        except pika.exceptions.StreamLostError as e:
+            logging.error(f"Stream connection lost: {e}")
+            self.connect()  # Reconnect and reattempt
+            self.declare_reply_queue()
+            self.receive_message(queue_name, callback)  # Retry receiving messages
         except Exception as e:
             logging.error(f"Failed to receive message from queue '{queue_name}': {str(e)}")
+
+    def receive_direct_replies(self, callback):
+        self.receive_message(self.declare_reply_queue().method.queue, callback)
 
     def close(self):
         """Closes the connection to RabbitMQ, ensuring a clean disconnect."""

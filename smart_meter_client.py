@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 from tkinter import messagebox
 import customtkinter as ctk
@@ -6,10 +8,16 @@ import time
 import uuid
 import platform
 import re
+
+from pydantic import ValidationError
 from api_handler import ApiHandler
-from threading import Thread
+from threading import Thread, Event
 from datetime import datetime
-import psutil  # You'll need to install this package with `pip install psutil`
+import psutil
+
+from models.bill import Bill
+from models.reading import Reading
+from models.message import Message
 
 
 # Simulate server communication to fetch the latest bill and usage
@@ -24,6 +32,11 @@ class SmartMeterApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        self.APIHandler = None
+        self.connection_established = Event()
+        self.uuid = None
+
+
         # Window title and fixed size
         self.title("SmartMeter")
         self.geometry("500x400")
@@ -37,6 +50,9 @@ class SmartMeterApp(ctk.CTk):
         # Cog icon for settings access (top right corner)
         self.cog_button = ctk.CTkButton(self, text="⚙", width=30, command=self.show_settings_page)
         self.cog_button.grid(row=0, column=0, sticky="ne", padx=10, pady=10)
+
+        # connection button for settings access (top right corner)
+        self.connection_button = ctk.CTkButton(self, text="Retry Connection", width=30, command=self.start_connection)
 
         # Main view
         self.main_frame = ctk.CTkFrame(self)
@@ -53,7 +69,7 @@ class SmartMeterApp(ctk.CTk):
         self.usage_label = ctk.CTkLabel(self.main_frame, text="Total Usage: 0.00 kWh", font=ctk.CTkFont(size=16))
         self.usage_label.grid(row=2, column=0, pady=(5, 5), sticky="n")
 
-        self.last_updated_label = ctk.CTkLabel(self.main_frame, text="Last Updated: N/A", font=ctk.CTkFont(size=14))
+        self.last_updated_label = ctk.CTkLabel(self.main_frame, text="Last Updated: Connecting", font=ctk.CTkFont(size=14))
         self.last_updated_label.grid(row=3, column=0, pady=(5, 10), sticky="n")
 
         self.console_toggle_button = ctk.CTkButton(self.main_frame, text="Show Console", command=self.toggle_console)
@@ -96,31 +112,33 @@ class SmartMeterApp(ctk.CTk):
 
         self.settings_frame.grid_remove()
 
-        # Start the background thread to update the bill and usage
-        self.start_bill_updates()
+        #Establish RabbitMQ Connection
+        self.start_connection()
 
-        # Start the background thread to listen for incoming messages
-        self.start_receiving_messages()
+       
 
     def get_unique_device_id(self):
         # Retrieve MAC address as a unique identifier
+        if(not self.uuid == None):
+            return self.uuid
+        
         try:
             mac = psutil.net_if_addrs()
             for iface_name, iface_list in mac.items():
                 for iface in iface_list:
                     if iface.family == psutil.AF_LINK:
-                        return iface.address
+                        self.uuid = hashlib.sha256(f"{iface.address}{random.randint(1000, 9999)}".encode('utf-8')).hexdigest()[:16]
+                        return self.uuid
         except Exception as e:
-            self.console.log('test')
+            print(e)
+            print('Failed to retrieve MAC Address. Defaulting to UUID')
             return str(uuid.uuid4())  # Fallback to UUID if MAC address retrieval fails
 
     def toggle_mode(self):
         if self.mode_toggle_button.get() == "dark":
             ctk.set_appearance_mode("dark")
-            self.mode_toggle_button.configure(text="Light Mode")
         else:
             ctk.set_appearance_mode("light")
-            self.mode_toggle_button.configure(text="Dark Mode")
 
     def toggle_console(self):
         if self.console_frame.winfo_ismapped():
@@ -132,22 +150,149 @@ class SmartMeterApp(ctk.CTk):
             self.console_toggle_button.configure(text="Hide Console")
             self.geometry("500x455")  # Adjust window size when console is shown
 
-    def start_bill_updates(self):
-        thread = Thread(target=self.update_bill)
-        thread.daemon = True
-        thread.start()
+    def start_connection(self):
+        if(self.connection_established.is_set() == False):
+            self.connection_button.grid_forget()
+            connection_thread = Thread(target=self.establish_queue_connection)
+            connection_thread.start()
+
+    def establish_queue_connection(self):
+        retries = 1;
+        while(retries <= 3):
+            self.last_updated_label.configure(text=f"Last Updated: Connecting")
+
+            try:
+                # Establish connection
+                self.APIHandler = ApiHandler()
+                self.APIHandler.connect()
+
+                #Indicate connection established
+                self.connection_established.set()
+
+                # Start sending/receiving messages from RabbitMQ
+                self.last_updated_label.configure(text=f"Last Updated: Connecting")
+                self.start_background_services()
+                break
+
+            except Exception as e:
+                self.last_updated_label.configure(text=f"Last Updated: Offline")
+                self.log_to_console(f'Failed to connect to service - attempt {retries}')
+            finally:
+                retries += 1
+
+        if self.connection_established.is_set() == False:
+            self.connection_button.grid(row=0, column=0, sticky="ne", padx=60, pady=10)
+            self.show_popup_message('Failed to establish connection to service.')
+
+    
+
+
+    def start_background_services(self):
+        if self.connection_established.is_set():
+            # Start the background thread to listen for incoming messages
+            self.start_receiving_messages()
 
     def start_receiving_messages(self):
-        bills = Thread(target=self.receive_billing_messages)
-        bills.daemon = True
-        bills.start()
+        
+        try:
+            bills = Thread(target=self.handle_readings)
+            bills.daemon = True
+            bills.start()
 
-        notifications = Thread(target=self.receive_notification_messages)
-        notifications.daemon = True
-        notifications.start()
+            notifications = Thread(target=self.receive_notification_messages)
+            notifications.daemon = True
+           # notifications.start()
 
-    def receive_billing_messages(self):
-        handler = ApiHandler();
+           
+        except Exception as e:
+            print(f'Error ocurred on message thread: {e}')
+
+
+    def handle_readings(self):
+
+        try: 
+            handler = ApiHandler()
+            handler.connect()
+
+            # Queue
+
+            with handler:
+                while True:
+                    
+                    if handler.channel and handler.connection.is_open:
+
+                        # Simulate a 2-second interval between bill updates
+                        time.sleep(2)
+                        
+                        handler.declare_queue('readings')
+                        reply_to = handler.declare_reply_queue()
+
+
+                        '''if random.random() < 0.1:  # 10% chance of network failure
+                            self.log_to_console("Network lost... Trying to reconnect.")
+                            time.sleep(2)  # Simulate downtime during network loss
+                            self.log_to_console("Reconnected to the network.")
+                            continue  # Skip updating the bill during a network outage
+                        '''
+                        # Fetch the latest bill and usage (simulated server response)
+                        bill_increment, usage_increment = simulate_server_communication()
+                        #self.current_bill += bill_increment
+                        self.total_usage += usage_increment
+
+                        message = Message[Reading](
+                            messageType='READING',
+                            data=Reading(
+                                meter_id=str(self.get_unique_device_id()),
+                                reading_value=self.total_usage
+                            )
+                        )
+
+                        #send update
+                        handler.send_message(queue_name='readings', message=message.model_dump_json());
+
+                         # handle receive message
+                        def handleReply(message):
+
+                            # Attempt to parse response
+                            try:
+                                response = Message[Bill].model_validate_json(message)
+
+                                #bill = message.get('bill')
+                                self.current_bill = response.data.total_bill
+                                self.refresh_ui()
+
+                            except ValidationError as e:
+                                print(f"Invalid response: {e}")
+
+                        # Start listening for a reply (non-blocking)
+                        handler.receive_direct_replies(handleReply)
+                    
+                    else:
+                        print('no connection')
+                
+                    
+
+             
+        except Exception as e:
+            print(f"ERROR {e}")
+
+
+
+    def refresh_ui(self):
+        # Update the bill and usage labels
+        self.bill_label.configure(text=f"Current Bill: £{self.current_bill:.2f}")
+        self.usage_label.configure(text=f"Total Usage: {self.total_usage:.2f} kWh")
+
+        # Update the last updated time
+        last_updated_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.last_updated_label.configure(text=f"Last Updated: {last_updated_time}")
+
+        # Log the action in the console with a timestamp
+        self.log_to_console(f"Bill updated: £{self.current_bill:.2f}, Usage: {self.total_usage:.2f} kWh")
+
+    def receive_billing_messages(self, queue):
+        handler = ApiHandler()
+        handler.connect()
 
         def handleReply(message):
             #bill = message.get('bill')
@@ -156,60 +301,31 @@ class SmartMeterApp(ctk.CTk):
             self.current_bill = bill
             self.log_to_console(f'Message received: {message}')
 
-        handler.receive_message(queue_name='readings',callback=handleReply)
+        try: 
+            self.APIHandler.receive_message(queue.method.queue, handleReply)
+        except Exception as e:
+            print('Failed to receive a message from direct reply-to queue.')
 
     def receive_notification_messages(self):
-        handler = ApiHandler();
-        reply_queue = handler.channel.queue_declare(queue='', exclusive=True);
+        handler = ApiHandler()
+        handler.connect()
 
         def handleAlert(message):
+            self.log_to_console(f"Alert: {message}")
             self.show_popup_message(message)
 
-        handler.receive_message(queue_name='updates',callback=handleAlert)
-
-    def update_bill(self):
-        try:
-            with ApiHandler(host="localhost") as handler:
-                while True:
-                    # Simulate a 2-second interval between bill updates
-                    time.sleep(2)
-
-                    if random.random() < 0.1:  # 10% chance of network failure
-                        self.log_to_console("Network lost... Trying to reconnect.")
-                        time.sleep(2)  # Simulate downtime during network loss
-                        self.log_to_console("Reconnected to the network.")
-                        continue  # Skip updating the bill during a network outage
-
-                    # Fetch the latest bill and usage (simulated server response)
-                    bill_increment, usage_increment = simulate_server_communication()
-                    #self.current_bill += bill_increment
-                    self.total_usage += usage_increment
-
-                    #send update
-                    handler.send_message(queue_name='readings', message=json.dumps(
-                        {
-                            'usage': self.total_usage
-                        }
-                    ));
-
-                    # Update the bill and usage labels
-                    self.bill_label.configure(text=f"Current Bill: £{self.current_bill:.2f}")
-                    self.usage_label.configure(text=f"Total Usage: {self.total_usage:.2f} kWh")
-
-                    # Update the last updated time
-                    last_updated_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    self.last_updated_label.configure(text=f"Last Updated: {last_updated_time}")
-
-                    # Log the action in the console with a timestamp
-                    self.log_to_console(f"[{last_updated_time}] Bill updated: £{self.current_bill:.2f}, Usage: {self.total_usage:.2f} kWh")
-
-        except Exception as e:
-            # Log error messages to the console instead of showing pop-ups
-            self.log_to_console(f"Error occurred: {str(e)}")
+        with handler:
+            while True:
+                try: 
+                    handler.receive_message(queue_name='updates',callback=handleAlert)
+                except Exception as e:
+                    self.log_to_console('Failed to receive a message from updates queue.')
 
     def log_to_console(self, message):
+        last_updated_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         self.console_textbox.configure(state="normal")
-        self.console_textbox.insert(ctk.END, f"{message}\n")
+        self.console_textbox.insert(ctk.END, f"[{last_updated_time}] {message}\n")
         self.console_textbox.see(ctk.END)
         self.console_textbox.configure(state="disabled")
 

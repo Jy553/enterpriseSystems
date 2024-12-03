@@ -15,6 +15,7 @@ connection = pika.BlockingConnection(connection_parameters)
 
 channel = connection.channel()
 reply_queue = channel.queue_declare(queue='', exclusive=True)
+channel.queue_declare(queue='readings')
 
 channel.basic_consume(queue=reply_queue.method.queue, auto_ack=True, on_message_callback=reply_callback_received)
 
