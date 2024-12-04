@@ -20,78 +20,76 @@ class TaskValidateReading(Task):
         print(f"  Previous Reading: {reading.previous_reading}")
         print(f"  Sequence Number: {reading.sequence_number}")
         print(f"  Message ID: {reading.message_id}")
-        print(f"Communication data: {communication_data}")
         self.reading = reading
         self.communication_data = communication_data
 
     def execute(self) -> None:
         print("\n=== Starting TaskValidateReading Execution ===")
+
         try:
+            # Validate current reading value
             print("\n--- Starting Reading Value Validation ---")
             print(f"Current reading value: {self.reading.reading_value}")
-            try:
-                BillDataValidator.validate_reading(self.reading.reading_value)
-                print("Reading value validation passed")
-            except ValueError as e:
-                print(f"Reading value validation failed: {str(e)}")
-                raise
+            BillDataValidator.validate_reading(self.reading.reading_value)
+            print("Reading value validation passed")
 
+            # Validate timestamp
             print("\n--- Starting Timestamp Validation ---")
             print(f"Reading timestamp: {self.reading.timestamp}")
             print(f"Current time: {datetime.now()}")
-            try:
-                BillDataValidator.validate_timestamp(self.reading.timestamp)
-                print("Timestamp validation passed")
-            except ValueError as e:
-                print(f"Timestamp validation failed: {str(e)}")
-                raise
+            BillDataValidator.validate_timestamp(self.reading.timestamp)
+            print("Timestamp validation passed")
 
-            print("\n--- Starting Previous Reading Retrieval ---")
-            previous_reading = MockReadingsMemory.get_latest_reading(self.reading.meter_id)
-            if previous_reading:
-                print("Found previous reading:")
-                print(f"  Previous Reading Value: {previous_reading.reading_value}")
-                print(f"  Previous Reading Timestamp: {previous_reading.timestamp}")
-            else:
-                print("No previous reading found in storage")
-
-            print("\n--- Starting Reading Sequence Validation ---")
+            # Get previous reading
+            print("\n--- Retrieving Previous Reading ---")
             try:
-                print(f"Validating sequence between:")
-                print(f"  Current Reading: {self.reading.reading_value} at {self.reading.timestamp}")
+                previous_reading = MockReadingsMemory.get_latest_reading(self.reading.meter_id)
                 if previous_reading:
-                    print(f"  Previous Reading: {previous_reading.reading_value} at {previous_reading.timestamp}")
+                    print(f"Found previous reading: {previous_reading.reading_value} {previous_reading.reading_unit}")
                 else:
-                    print("  No previous reading to validate sequence against")
+                    print("No previous reading found - this is the first reading")
+            except Exception as e:
+                print(f"Error retrieving previous reading: {e}")
+                previous_reading = None
 
-                BillDataValidator.validate_readings_sequence(self.reading, previous_reading)
-                print("Reading sequence validation passed")
-            except ValueError as e:
-                print(f"Reading sequence validation failed: {str(e)}")
-                raise
+            # Validate reading sequence if we have a previous reading
+            if previous_reading:
+                print("\n--- Validating Reading Sequence ---")
+                try:
+                    BillDataValidator.validate_readings_sequence(self.reading, previous_reading)
+                    print("Reading sequence validation passed")
+                except ValueError as e:
+                    print(f"Reading sequence validation failed: {e}")
+                    raise
 
-            print("\n--- All Validations Passed - Enqueueing Bill Calculation ---")
-            print("Creating TaskCalculateBill...")
+            # Create and enqueue bill calculation task
+            print("\n--- Creating Bill Calculation Task ---")
             try:
                 bill_task = TaskCalculateBill(
                     reading=self.reading,
-                    communication_data=self.communication_data)
+                    communication_data=self.communication_data
+                )
                 TaskManager.enqueue(bill_task)
                 print("Successfully enqueued bill calculation task")
             except Exception as e:
-                print(f"Failed to enqueue bill calculation task: {str(e)}")
-                print(f"Error type: {type(e).__name__}")
+                print(f"Failed to enqueue bill calculation task: {e}")
                 raise
 
         except ValueError as e:
             print("\n!!! Validation Failed - Creating Alert !!!")
             print(f"Original error: {str(e)}")
+            self._handle_validation_error(str(e))
+            raise
+        except Exception as e:
+            print(f"\n!!! Unexpected Error: {str(e)} !!!")
+            raise
 
-            print("\n--- Creating User-Friendly Alert Message ---")
-            friendly_message = self._get_user_friendly_message(str(e))
-            print(f"Converted to friendly message: {friendly_message}")
+        print("\n=== TaskValidateReading Completed Successfully ===")
 
-            print("\n--- Creating Alert Object ---")
+    def _handle_validation_error(self, error_message: str):
+        """Handle validation errors by creating and enqueueing an alert."""
+        try:
+            friendly_message = self._get_user_friendly_message(error_message)
             alert = Alert(
                 meter_id=self.reading.meter_id,
                 message=friendly_message,
@@ -100,48 +98,27 @@ class TaskValidateReading(Task):
                 reading_id=self.reading.message_id,
                 severity="HIGH"
             )
-            print("Alert object created successfully")
 
-            print("\n--- Enqueueing Alert Serialization Task ---")
-            try:
-                TaskManager.enqueue(
-                    TaskSerializeAlert(
-                        alert=alert,
-                        communication_data=self.communication_data))
-                print("Successfully enqueued alert serialization task")
-            except Exception as e:
-                print(f"Failed to enqueue alert serialization task: {str(e)}")
-                print(f"Error type: {type(e).__name__}")
-                raise
-
-            print("\n--- Re-raising Original Validation Error ---")
+            TaskManager.enqueue(
+                TaskSerializeAlert(
+                    alert=alert,
+                    communication_data=self.communication_data
+                )
+            )
+            print("Alert task enqueued successfully")
+        except Exception as e:
+            print(f"Failed to create/enqueue alert: {e}")
             raise
-
-        print("\n=== TaskValidateReading Completed Successfully ===")
-        print("=============================================")
 
     @staticmethod
     def _get_user_friendly_message(error_message: str) -> str:
         """Convert technical error messages into user-friendly notifications."""
-        print("\n--- Converting Error to User-Friendly Message ---")
-        print(f"Original error message: {error_message}")
-
-        friendly_message = None
         if "cannot be negative" in error_message:
-            friendly_message = ("Your meter reading shows negative consumption. "
-                                "Please have your meter inspected for potential malfunction.")
+            return "Your meter reading shows negative consumption. Please have your meter inspected."
         elif "cannot be less than previous" in error_message:
-            friendly_message = ("Your meter reading is lower than the previous reading. "
-                                "Please check your meter for proper operation.")
+            return "Your meter reading is lower than the previous reading. Please check your meter."
         elif "cannot be in the future" in error_message:
-            friendly_message = ("Your meter reading shows a future timestamp. "
-                                "Please verify your meter's date and time settings.")
+            return "Your meter reading shows a future timestamp. Please verify your meter's settings."
         elif "billing period" in error_message:
-            friendly_message = ("The time between meter readings is unusually long. "
-                                "Please ensure regular meter readings are being submitted.")
-        else:
-            friendly_message = ("An issue was detected with your meter reading. "
-                                "Please contact support for assistance.")
-
-        print(f"Converted to friendly message: {friendly_message}")
-        return friendly_message
+            return "The time between meter readings is unusually long. Please ensure regular readings."
+        return "An issue was detected with your meter reading. Please contact support."
