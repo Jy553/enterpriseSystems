@@ -1,0 +1,1 @@
+This is a space for files used during development which are useful for understanding the steps taken to develop this application, particularly the client<-> server mechanisms of AMQP etc. 
