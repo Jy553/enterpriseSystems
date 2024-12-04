@@ -15,6 +15,7 @@ class TaskPipeline:
 
     def enqueue(self, task: Task) -> None:
         self.task_queue.put(task)
+        print("Enqueued")
 
     def _process_queue(self) -> None:
         while self._running:

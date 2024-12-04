@@ -222,7 +222,7 @@ class SmartMeterApp(ctk.CTk):
                     if handler.channel and handler.connection.is_open:
 
                         # Simulate a 2-second interval between bill updates
-                        time.sleep(2)
+                        time.sleep(60)
                         
                         handler.declare_queue('readings')
                         reply_to = handler.declare_reply_queue()

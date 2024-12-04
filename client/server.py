@@ -8,21 +8,20 @@ from models.message import Message
 from models.reading import Reading
 from pydantic import ValidationError
 
+
 def on_message_received(channel, method, properties, body):
     cost_per_unit = 1.30
-   
 
     # Parse incoming payload
     try:
         data = Message[Reading].model_validate_json(body)
-        if(data.messageType != 'READING'):
+        if (data.messageType != 'READING'):
             print("invalid message type")
             return
-        
-        cost = (data.data.reading_value * cost_per_unit)
-        
-        print(f"ID: {data.data.meter_id} | Usage: {data.data.reading_value}{data.data.reading_unit}")
 
+        cost = (data.data.reading_value * cost_per_unit)
+
+        print(f"ID: {data.data.meter_id} | Usage: {data.data.reading_value}{data.data.reading_unit}")
 
         response = Message[Bill](
             messageType='BILL',
@@ -38,18 +37,20 @@ def on_message_received(channel, method, properties, body):
                 billing_period_end=datetime.now(),
                 total_standing_charge=cost
             ))
-        
-        print(response.model_dump_json());
 
-        channel.basic_publish('', routing_key=properties.reply_to,
-                          body=response.model_dump_json(), properties=pika.BasicProperties(correlation_id=properties.correlation_id))
+        print(response.model_dump_json())
+
+        channel.basic_publish(
+            '',
+            routing_key=properties.reply_to,
+            body=response.model_dump_json(),
+            properties=pika.BasicProperties(
+                correlation_id=properties.correlation_id))
         channel.basic_ack(delivery_tag=method.delivery_tag)
     except ValidationError as e:
         print(f"Invalid payload: {properties.correlation_id}")
     except Exception as e:
         print("Error")
-
-
 
 
 connection_parameters = pika.ConnectionParameters('localhost')

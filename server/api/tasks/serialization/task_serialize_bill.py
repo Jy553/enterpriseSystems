@@ -4,12 +4,18 @@ from models.task import Task
 from server.api.tasks.task_send_bill import TaskSendBill
 from server.task_pipeline.task_manager import TaskManager
 
+
 class TaskSerializeBill(Task):
     def __init__(self,
-                 bill_data: BillData):
+                 bill_data: BillData,
+                 communication_data):
         self.serializer = BillSerializer()
         self.bill_data = bill_data
+        self.communication_data = communication_data
 
     def execute(self):
         bill_json_str = self.serializer.bill_to_json(self.bill_data)
-        TaskManager().enqueue(TaskSendBill(bill_json_str))
+        TaskManager().enqueue(
+            TaskSendBill(
+                bill_json=bill_json_str,
+                communication_data=self.communication_data))

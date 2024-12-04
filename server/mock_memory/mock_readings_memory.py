@@ -18,9 +18,13 @@ class MockReadingsMemory:
 
     @classmethod
     def get_latest_reading(cls, meter_id: str) -> Optional[MeterReading]:
+        print("attempting to get latest reading")
         with cls._lock:
+            print("attempting to get previous reading; locked")
             if meter_id not in cls._readings or not cls._readings[meter_id]:
+                print("no previous reading found")
                 return None
+            print("previous reading found")
             return cls._readings[meter_id][-1][1]  # Return last element because list already sorted
 
     @classmethod

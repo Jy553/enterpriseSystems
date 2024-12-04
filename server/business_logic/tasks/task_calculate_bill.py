@@ -8,12 +8,13 @@ from server.task_pipeline.task_manager import TaskManager
 
 
 class TaskCalculateBill(Task):
-    def __init__(self, reading: MeterReading):
+    def __init__(self, reading: MeterReading, communication_data):
         self.reading = reading
         self.calculator = BillCalculator(
             price_per_unit=Config.get_price_per_unit(),
             standing_charge=Config.get_standing_charge()
         )
+        self.communication_data = communication_data
 
     def execute(self) -> None:
         previous_reading = MockReadingsMemory.get_latest_reading(self.reading.meter_id)
@@ -24,4 +25,7 @@ class TaskCalculateBill(Task):
             previous_reading
         )
 
-        TaskManager.enqueue(TaskSerializeBill(bill_data))
+        TaskManager.enqueue(
+            TaskSerializeBill(
+                bill_data=bill_data,
+                communication_data=self.communication_data))

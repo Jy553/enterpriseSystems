@@ -1,6 +1,7 @@
 import threading
 from typing import Optional
 from models.task import Task
+from models.task_communications_data import TaskCommunicationsData
 from server.task_pipeline.task_pipeline import TaskPipeline
 
 
@@ -27,3 +28,4 @@ class TaskManager:
         if cls._pipeline is None:
             raise RuntimeError("TaskManager not initialized")
         cls._pipeline.enqueue(task)
+        print("Task added to task pipeline")

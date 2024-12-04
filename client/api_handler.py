@@ -9,6 +9,7 @@ Description:
 
 import uuid
 import pika
+from pika import exceptions
 import logging
 
 
