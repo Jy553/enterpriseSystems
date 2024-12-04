@@ -8,7 +8,7 @@ import threading
 import logging
 import psutil
 import uuid
-from client.smart_meter_client import SmartMeterApp
+#from client.smart_meter_client import SmartMeterApp
 from messaging_client import MessagingClient
 from models.bill import Bill
 from models.reading import Reading
@@ -378,6 +378,6 @@ class SmartMeterApp(ctk.CTk):
                 self.messaging_client.close()
                 logger.info("Messaging client closed")
 
-    if __name__ == "__main__":
-        app = SmartMeterApp()
-        app.mainloop()
+if __name__ == "__main__":
+    app = SmartMeterApp()
+    app.mainloop()
