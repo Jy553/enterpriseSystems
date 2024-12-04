@@ -4,7 +4,7 @@ from models.bill_data import BillData
 
 class BillSerializer:
     @staticmethod
-    def bill_to_json(bill_data: BillData) -> json:
+    def bill_to_json(bill_data: BillData) -> str:
         return json.dumps({
             'meter_id': bill_data.meter_id,
             'consumption': round(bill_data.consumption, 2),

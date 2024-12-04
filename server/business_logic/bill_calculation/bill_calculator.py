@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from models.bill_data import BillData
 from models.meter_reading import MeterReading
-from server.business_logic.tasks.calculate_bill.bill_data_validator import BillDataValidator
+from server.business_logic.bill_calculation.bill_data_validator import BillDataValidator
 
 
 class BillCalculator:
@@ -17,19 +17,12 @@ class BillCalculator:
         current_reading: MeterReading,
         previous_reading: Optional[MeterReading],
     ) -> BillData:
-        print("\nDEBUG - Calculating Bill:")
-        print(f"Current Reading: {current_reading.meter_id} - {current_reading.reading_value} kWh at {current_reading.timestamp}")
-        if previous_reading:
-            print(f"Previous Reading: {previous_reading.meter_id} - {previous_reading.reading_value} kWh at {previous_reading.timestamp}")
-        else:
-            print("No previous reading available")
 
         # Validate current reading
         BillDataValidator.validate_reading(current_reading.reading_value)
         BillDataValidator.validate_timestamp(current_reading.timestamp)
 
         is_initial_reading = previous_reading is None
-        print(f"Is initial reading: {is_initial_reading}")
 
         if not is_initial_reading:
             # Validate previous reading
@@ -41,21 +34,15 @@ class BillCalculator:
 
             # Calculate consumption
             consumption = current_reading.reading_value - previous_reading.reading_value
-            print(f"Calculated consumption: {consumption} kWh")
 
             # Calculate billing period in days
             billing_period_timedelta = current_reading.timestamp - previous_reading.timestamp
             billing_period = billing_period_timedelta.total_seconds() / (24 * 3600)
-            print(f"Billing period: {billing_period} days")
 
             # Calculate costs
             consumption_cost = consumption * self.price_per_unit
             total_standing_charge = self.standing_charge * billing_period
             total_bill = consumption_cost + total_standing_charge
-
-            print(f"Consumption cost: £{consumption_cost:.2f}")
-            print(f"Standing charge: £{total_standing_charge:.2f}")
-            print(f"Total bill: £{total_bill:.2f}")
 
             billing_period_start = previous_reading.timestamp
             billing_period_end = current_reading.timestamp

@@ -5,7 +5,7 @@ from models.meter_reading import MeterReading
 
 class MeterReadingDeserializer:
     @classmethod
-    def from_json(cls, json_str: str) -> MeterReading:
+    def convert_reading_json_to_reading_object(cls, json_str: str) -> MeterReading:
         """Convert a JSON string to a MeterReading object."""
         data = json.loads(json_str)
 

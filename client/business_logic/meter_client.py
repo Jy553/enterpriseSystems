@@ -49,7 +49,7 @@ class MeterClient:
                 reading = self.generator.generate_reading(self._meter_id)
 
                 # Save reading
-                self.memory.save_reading(reading.message_id, reading)
+                self.memory.save_new_meter_reading(reading.message_id, reading)
 
                 # Serialize reading for RabbitMQ
                 reading_json = MeterReadingSerializer.to_json(reading)

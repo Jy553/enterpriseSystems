@@ -28,7 +28,8 @@ class BillDataValidator:
 
         if current.reading_value < previous.reading_value:
             raise ValueError(
-                f"Current reading ({current.reading_value}) cannot be less than previous reading ({previous.reading_value})"
+                f"Current reading ({current.reading_value})"
+                f"cannot be less than previous reading ({previous.reading_value})"
             )
 
         if current.timestamp <= previous.timestamp:
