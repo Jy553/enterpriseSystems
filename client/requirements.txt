@@ -1,0 +1,28 @@
+# GUI framework
+customtkinter
+
+# Data Handling
+pydantic             # Use for json model serialisation/deserialisation
+
+# Testing frameworks
+pytest>=7.4.0               # Core testing framework
+pytest-mock>=3.11.1          # Mocking utilities for testing
+
+# Mocking, code coverage, and reporting
+pytest-cov           # Coverage reporting
+pytest-html          # HTML reporting for test results
+pytest-xdist         # Parallel test execution
+
+# Logging and monitoring
+psutil               # System monitoring (resource usage, MAC address access)
+
+# Messaging and connectivity
+pika                 # RabbitMQ connection
+
+# Static analysis, linting, and formatting (optional but recommended)
+flake8               # Linting to enforce code quality standards
+black                # Code formatting for consistency
+
+# Load testing (if required)
+locust               # Load testing for handling high concurrency scenarios
+

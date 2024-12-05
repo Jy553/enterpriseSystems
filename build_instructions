@@ -1,0 +1,28 @@
+Using a machine or VM with Docker installed (for example github code spaces).
+Also ensure you have imported the requirements from requirements.txt.
+---
+1) ensure you are in the right directory:
+open a terminal window and enter 'cd client' to change to the client directory.
+---
+2) run the docker compose file
+in the same terminal type 'docker-compose up' to start Docker.
+this should initialise a rabbitMQ container in Docker.
+---
+3) wait for Docker to finish initialising.
+---
+4) open port 8080 in a web browser.
+(in visual studio code this can be done through the ports tab => hover over port 8080 -> click the globe icon)
+---
+5) in your browser window that pops up on port 8080, you should see a rabbitMQ login screen.
+---
+6) log into RabbitMQ using username 'guest' and password 'guest'.
+---
+7) this should take you to the rabbitMQ dashboard.
+---
+8) right click __main__.py and click run.
+---
+9) right click smart_meter_app.py and click run.
+---
+10) steps 8 and 9 should have started the server and started a client.
+---
+11) wait for readings to come through. logs for both can be seen in the consoles.
