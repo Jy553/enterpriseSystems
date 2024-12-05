@@ -1,4 +1,4 @@
-#Build instructions
+# Build instructions
 Ensure you have the following installed on your machine. Refer to 3rd-party documentation for each technology regarding installation steps:
 - Python
 - Pip
