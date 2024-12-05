@@ -2,20 +2,19 @@ import threading
 from typing import Optional, Dict, List, Tuple
 from models.meter_reading import MeterReading
 from datetime import datetime
-import logging
 
 
 class MockReadingsMemory:
     _instance = None
     _lock = threading.Lock()
-    _readings: Dict[str, List[Tuple[datetime, MeterReading]]] = {}  # Initialize as empty dict
+    _readings: Dict[str, List[Tuple[datetime, MeterReading]]] = {}
 
     def __new__(cls):
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = super(MockReadingsMemory, cls).__new__(cls)
-                    if cls._readings is None:  # Ensure readings dict exists
+                    if cls._readings is None:
                         cls._readings = {}
         return cls._instance
 

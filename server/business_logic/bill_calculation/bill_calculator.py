@@ -24,29 +24,29 @@ class BillCalculator:
 
         is_initial_reading = previous_reading is None
 
-        if not is_initial_reading:
-            # Validate previous reading
-            BillDataValidator.validate_reading(previous_reading.reading_value)
-            BillDataValidator.validate_timestamp(previous_reading.timestamp)
+        # if not is_initial_reading:
+        # Validate previous reading
+        BillDataValidator.validate_reading(previous_reading.reading_value)
+        BillDataValidator.validate_timestamp(previous_reading.timestamp)
 
-            # Validate readings sequence using the validator's method for MeterReading objects
-            BillDataValidator.validate_readings_sequence(current_reading, previous_reading)
+        # Validate readings sequence using the validator's method for MeterReading objects
+        BillDataValidator.validate_readings_sequence(current_reading, previous_reading)
 
-            # Calculate consumption
-            consumption = current_reading.reading_value
+        # Calculate consumption
+        consumption = current_reading.reading_value
 
-            # Calculate billing period in days
-            billing_period_timedelta = current_reading.timestamp - previous_reading.timestamp
-            billing_period = billing_period_timedelta.total_seconds() / (24 * 3600)
+        # Calculate billing period in days
+        billing_period_timedelta = current_reading.timestamp - previous_reading.timestamp
+        billing_period = billing_period_timedelta.total_seconds() / (24 * 3600)
 
-            # Calculate costs
-            consumption_cost = consumption * self.price_per_unit
-            total_standing_charge = self.standing_charge * billing_period
-            total_bill = consumption_cost + total_standing_charge
+        # Calculate costs
+        consumption_cost = consumption * self.price_per_unit
+        total_standing_charge = self.standing_charge * billing_period
+        total_bill = consumption_cost + total_standing_charge
 
-            billing_period_start = previous_reading.timestamp
-            billing_period_end = current_reading.timestamp
-        else:
+        billing_period_start = previous_reading.timestamp
+        billing_period_end = current_reading.timestamp
+        """ else:
             # Initial reading scenario
             consumption = 0.0
             billing_period = 0.0
@@ -54,7 +54,7 @@ class BillCalculator:
             total_standing_charge = 0.0
             total_bill = 0.0
             billing_period_start = current_reading.timestamp
-            billing_period_end = current_reading.timestamp
+            billing_period_end = current_reading.timestamp"""
 
         # Create and return BillData
         bill_data = BillData(

@@ -1,7 +1,6 @@
 import threading
 from typing import Optional
 from models.task import Task
-from models.task_communications_data import TaskCommunicationsData
 from server.task_pipeline.task_pipeline import TaskPipeline
 
 

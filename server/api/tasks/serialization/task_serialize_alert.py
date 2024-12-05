@@ -24,4 +24,4 @@ class TaskSerializeAlert(Task):
                 meter_id=self.alert.meter_id,
                 alert_message=self.alert.message,
                 communication_data=self.communication_data
-        ))
+            ))

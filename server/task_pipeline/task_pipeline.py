@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 from models.task import Task
 import threading
-import logging
 
 
 class TaskPipeline:

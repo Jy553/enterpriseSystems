@@ -3,12 +3,11 @@ from tkinter import messagebox
 import customtkinter as ctk
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 import threading
 import logging
 import psutil
 import uuid
-#from client.smart_meter_client import SmartMeterApp
 from messaging_client import MessagingClient
 from models.bill import Bill
 from models.reading import Reading
@@ -27,9 +26,8 @@ class SmartMeterApp(ctk.CTk):
         self.readings_thread = None
         self.connected = threading.Event()
 
-        # Simulated meter state - ONLY these two variables
-        self._meter_reading = 0.0  # The actual meter reading
-        self.current_bill = 0.0  # Latest bill amount from server
+        self._meter_reading = 0.0
+        self.current_bill = 0.0
         self.uuid = None
 
         # Set up the UI
