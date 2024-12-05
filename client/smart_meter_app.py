@@ -272,13 +272,16 @@ class SmartMeterApp(ctk.CTk):
         """Background thread for sending meter readings."""
         while self.connected.is_set():
             try:
+                calculated_value = (self._meter_reading + random.uniform(1.50, 5.0))
+                print(f'Meter current value: {self._meter_reading}\n')
+                print(f'Meter new reading: {calculated_value}')
                 # Create reading message with current accumulated reading
                 reading = Message[Reading](
                     messageType='READING',
                     timestamp=datetime.now(),
                     data=Reading(
                         meter_id=str(self.get_unique_device_id()),
-                        reading_value=(self._meter_reading + random.uniform(1.50, 5.0)),
+                        reading_value=calculated_value,
                         reading_unit='kwh'
                     )
                 )
