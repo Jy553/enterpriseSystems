@@ -33,7 +33,7 @@ class BillCalculator:
             BillDataValidator.validate_readings_sequence(current_reading, previous_reading)
 
             # Calculate consumption
-            consumption = current_reading.reading_value - previous_reading.reading_value
+            consumption = current_reading.reading_value
 
             # Calculate billing period in days
             billing_period_timedelta = current_reading.timestamp - previous_reading.timestamp

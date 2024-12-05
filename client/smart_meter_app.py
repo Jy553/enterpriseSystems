@@ -278,7 +278,7 @@ class SmartMeterApp(ctk.CTk):
                     timestamp=datetime.now(),
                     data=Reading(
                         meter_id=str(self.get_unique_device_id()),
-                        reading_value=self._meter_reading,
+                        reading_value=(self._meter_reading + random.uniform(1.50, 5.0)),
                         reading_unit='kwh'
                     )
                 )
